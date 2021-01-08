@@ -24,6 +24,7 @@ import {
   GridBehaviorProps,
   MenuItem,
   ProviderConsumer as FluentUIThemeConsumer,
+  Ref,
   SiteVariablesPrepared,
   gridNestedBehavior,
 } from "@fluentui/react-northstar";
@@ -58,13 +59,13 @@ import {
 } from "./BoardItem";
 
 import { BoardItemDialog, BoardItemDialogAction } from "./BoardItemDialog";
+import { useAccessibility } from "@fluentui/react-bindings";
 
 const boardBehavior = (props: GridBehaviorProps) =>
   setMultiple(gridNestedBehavior(props), {
     "focusZone.props": {
       handleTabKey: FocusZoneTabbableElements.all,
       isCircularNavigation: true,
-      pagingSupportDisabled: true,
       shouldEnterInnerZone: (event: React.KeyboardEvent<HTMLElement>) =>
         getCode(event) === keyboardKey.Enter,
     },
@@ -72,7 +73,7 @@ const boardBehavior = (props: GridBehaviorProps) =>
       role: "region",
       "aria-label": "Board lanes",
       "data-is-focusable": true,
-      tabIndex: -1,
+      tabIndex: 0,
     },
     "keyActions.root.focus.keyCombinations": [{ keyCode: keyboardKey.Escape }],
   });
@@ -182,6 +183,8 @@ const BoardStandalone = (props: IBoardStandaloneProps) => {
     t,
     rtl,
   } = props;
+
+  const [boardNode, setBoardNode] = useState<HTMLElement | null>(null);
 
   const [placeholderPosition, setPlaceholderPosition] = useState<
     TPlaceholderPosition
@@ -335,133 +338,162 @@ const BoardStandalone = (props: IBoardStandaloneProps) => {
     setArrangedLanes(omit(arrangedLanes, [laneKey]));
   };
 
+  const getA11Props = useAccessibility(boardBehavior, {
+    actionHandlers: {
+      preventDefault: (event) => {
+        console.log("[Board]", "[actionHandlers]", "[preventDefault]");
+        // preventDefault only if event coming from inside the board
+        if (event.currentTarget !== event.target) {
+          event.preventDefault();
+        }
+      },
+
+      focus: (event) => {
+        console.log("[Board]", "[actionHandlers]", "[focus]");
+        if (boardNode) {
+          boardNode.focus();
+          event.stopPropagation();
+        }
+      },
+    },
+  });
+
   return (
     <DragDropContext {...{ onDragStart, onDragUpdate, onDragEnd }}>
       <Box styles={{ overflowX: "auto", flex: "1 0 0" }}>
-        <Box
-          styles={{ height: "100%", display: "flex" }}
-          accessibility={boardBehavior}
-        >
-          {Object.keys(arrangedLanes).map((laneKey, laneIndex, laneKeys) => {
-            const last = laneIndex === laneKeys.length - 1;
-            return (
-              <BoardLane
-                first={laneIndex === 0}
-                last={addingLane ? false : last}
-                laneKey={laneKey}
-                lane={arrangedLanes[laneKey]}
-                addItemDialog={
-                  <BoardItemDialog
-                    action={BoardItemDialogAction.Create}
-                    trigger={
-                      <Button
-                        icon={<AddIcon outline />}
-                        iconOnly
-                        fluid
-                        title={t["add board item"]}
-                        aria-label={t["add board item"]}
-                      />
+        <Ref innerRef={setBoardNode}>
+          {getA11Props.unstable_wrapWithFocusZone(
+            <Box
+              {...getA11Props("root", {
+                styles: { height: "100%", display: "flex" },
+              })}
+            >
+              {Object.keys(arrangedLanes).map(
+                (laneKey, laneIndex, laneKeys) => {
+                  const last = laneIndex === laneKeys.length - 1;
+                  return (
+                    <BoardLane
+                      first={laneIndex === 0}
+                      last={addingLane ? false : last}
+                      laneKey={laneKey}
+                      lane={arrangedLanes[laneKey]}
+                      addItemDialog={
+                        <BoardItemDialog
+                          action={BoardItemDialogAction.Create}
+                          trigger={
+                            <Button
+                              icon={<AddIcon outline />}
+                              iconOnly
+                              fluid
+                              title={t["add board item"]}
+                              aria-label={t["add board item"]}
+                            />
+                          }
+                          initialState={{ lane: laneKey }}
+                          {...{
+                            arrangedLanes,
+                            users,
+                            t,
+                            setArrangedItems,
+                            arrangedItems,
+                          }}
+                        />
+                      }
+                      editItemDialog={(boardItem: IBoardItem) => (
+                        <>
+                          <BoardItemDialog
+                            action={BoardItemDialogAction.Edit}
+                            trigger={
+                              <MenuItem
+                                vertical
+                                icon={<EditIcon outline size="small" />}
+                                content={t["edit board item"]}
+                              />
+                            }
+                            initialState={boardItem}
+                            {...{
+                              arrangedLanes,
+                              users,
+                              t,
+                              setArrangedItems,
+                              arrangedItems,
+                            }}
+                          />
+                          <Dialog
+                            trigger={
+                              <MenuItem
+                                vertical
+                                icon={<TrashCanIcon outline size="small" />}
+                                content={t["delete"]}
+                              />
+                            }
+                            content={getText(t.locale, t["confirm delete"], {
+                              title: getText(t.locale, boardItem.title),
+                            })}
+                            confirmButton={{ content: t["delete"] }}
+                            cancelButton={{ content: t["cancel"] }}
+                            onConfirm={() => {
+                              const pos = arrangedItems[
+                                boardItem.lane
+                              ].findIndex(
+                                (laneItem) =>
+                                  laneItem.itemKey ===
+                                  (boardItem as IPreparedBoardItem).itemKey
+                              );
+                              arrangedItems[boardItem.lane].splice(pos, 1);
+                              setArrangedItems(cloneDeep(arrangedItems));
+                            }}
+                          />
+                        </>
+                      )}
+                      key={`BoardLane__${laneKey}`}
+                      preparedItems={arrangedItems[laneKey]}
+                      users={users}
+                      t={t}
+                      rtl={rtl}
+                      boardItemCardLayout={
+                        props.boardItemCardLayout || defaultBoardItemCardLayout
+                      }
+                      placeholderPosition={placeholderPosition}
+                      moveLane={moveLane}
+                      deleteLane={deleteLane}
+                    />
+                  );
+                }
+              )}
+              {addingLane && (
+                <BoardLane
+                  last
+                  pending
+                  laneKey={uniqueId("pl")}
+                  key="BoardLane__pending_lane"
+                  preparedItems={[]}
+                  users={users}
+                  t={t}
+                  rtl={rtl}
+                  boardItemCardLayout={
+                    props.boardItemCardLayout || defaultBoardItemCardLayout
+                  }
+                  placeholderPosition={null}
+                  exitPendingLane={(value) => {
+                    if (value.length > 0) {
+                      const newLaneKey = uniqueId("sl");
+                      setArrangedLanes(
+                        Object.assign(arrangedLanes, {
+                          [newLaneKey]: { title: value },
+                        })
+                      );
+                      setArrangedItems(
+                        Object.assign(arrangedItems, { [newLaneKey]: [] })
+                      );
                     }
-                    initialState={{ lane: laneKey }}
-                    {...{
-                      arrangedLanes,
-                      users,
-                      t,
-                      setArrangedItems,
-                      arrangedItems,
-                    }}
-                  />
-                }
-                editItemDialog={(boardItem: IBoardItem) => (
-                  <>
-                    <BoardItemDialog
-                      action={BoardItemDialogAction.Edit}
-                      trigger={
-                        <MenuItem
-                          vertical
-                          icon={<EditIcon outline size="small" />}
-                          content={t["edit board item"]}
-                        />
-                      }
-                      initialState={boardItem}
-                      {...{
-                        arrangedLanes,
-                        users,
-                        t,
-                        setArrangedItems,
-                        arrangedItems,
-                      }}
-                    />
-                    <Dialog
-                      trigger={
-                        <MenuItem
-                          vertical
-                          icon={<TrashCanIcon outline size="small" />}
-                          content={t["delete"]}
-                        />
-                      }
-                      content={getText(t.locale, t["confirm delete"], {
-                        title: getText(t.locale, boardItem.title),
-                      })}
-                      confirmButton={{ content: t["delete"] }}
-                      cancelButton={{ content: t["cancel"] }}
-                      onConfirm={() => {
-                        const pos = arrangedItems[boardItem.lane].findIndex(
-                          (laneItem) =>
-                            laneItem.itemKey ===
-                            (boardItem as IPreparedBoardItem).itemKey
-                        );
-                        arrangedItems[boardItem.lane].splice(pos, 1);
-                        setArrangedItems(cloneDeep(arrangedItems));
-                      }}
-                    />
-                  </>
-                )}
-                key={`BoardLane__${laneKey}`}
-                preparedItems={arrangedItems[laneKey]}
-                users={users}
-                t={t}
-                rtl={rtl}
-                boardItemCardLayout={
-                  props.boardItemCardLayout || defaultBoardItemCardLayout
-                }
-                placeholderPosition={placeholderPosition}
-                moveLane={moveLane}
-                deleteLane={deleteLane}
-              />
-            );
-          })}
-          {addingLane && (
-            <BoardLane
-              last
-              pending
-              laneKey={uniqueId("pl")}
-              key="BoardLane__pending_lane"
-              preparedItems={[]}
-              users={users}
-              t={t}
-              rtl={rtl}
-              boardItemCardLayout={
-                props.boardItemCardLayout || defaultBoardItemCardLayout
-              }
-              placeholderPosition={null}
-              exitPendingLane={(value) => {
-                if (value.length > 0) {
-                  const newLaneKey = uniqueId("sl");
-                  setArrangedLanes(
-                    Object.assign(arrangedLanes, {
-                      [newLaneKey]: { title: value },
-                    })
-                  );
-                  setArrangedItems(
-                    Object.assign(arrangedItems, { [newLaneKey]: [] })
-                  );
-                }
-                setAddingLane(false);
-              }}
-            />
+                    setAddingLane(false);
+                  }}
+                />
+              )}
+            </Box>
           )}
-        </Box>
+        </Ref>
       </Box>
     </DragDropContext>
   );
