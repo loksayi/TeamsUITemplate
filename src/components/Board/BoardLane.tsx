@@ -174,7 +174,7 @@ export const BoardLane = (props: IBoardLaneProps) => {
       },
 
       focus: (event) => {
-        if (laneNode) {
+        if (laneNode && event.target !== event.currentTarget) {
           laneNode.focus();
           event.stopPropagation();
         }

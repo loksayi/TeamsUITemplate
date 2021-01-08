@@ -171,6 +171,21 @@ const getPlaceholderPosition = (
   return [clientX, clientY, clientWidth, clientHeight];
 };
 
+const boardFocusBorderStyles = {
+  content: '""',
+  display: "block",
+  position: "absolute",
+  borderStyle: "solid",
+  borderWidth: 0,
+  top: 0,
+  bottom: 0,
+  left: "1px",
+  right: "2px",
+  borderRadius: "4px",
+  pointerEvents: "none",
+  zIndex: 1,
+};
+
 const BoardStandalone = (props: IBoardStandaloneProps) => {
   const {
     users,
@@ -365,7 +380,14 @@ const BoardStandalone = (props: IBoardStandaloneProps) => {
           {getA11Props.unstable_wrapWithFocusZone(
             <Box
               {...getA11Props("root", {
-                styles: { height: "100%", display: "flex" },
+                styles: {
+                  height: "100%",
+                  display: "flex",
+                  position: "relative",
+                  ":focus": { outline: "none" },
+                  "&::before": boardFocusBorderStyles,
+                  "&::after": boardFocusBorderStyles,
+                },
               })}
             >
               {Object.keys(arrangedLanes).map(
