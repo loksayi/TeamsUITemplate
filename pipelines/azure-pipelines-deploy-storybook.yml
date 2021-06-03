@@ -42,16 +42,16 @@ steps:
     displayName: "Deploy Storybook to AzureBlob"
     inputs:
       SourcePath: "$(StorybookDist)"
-      azureSubscription: "$(AzureSubscriptionName)"
+      azureSubscription: "EY-CTSBP-SANDBOX-ADVISORY-SBXDB1-E-65508760"
       Destination: AzureBlob
-      storage: "$(StorageAccountName)"
-      ContainerName: "$(ContainerName)"
+      storage: "execcomp"
+      ContainerName: "execcomp"
       BlobPrefix: "$(DirectoryName)"
 
   - task: AzurePowerShell@3
     displayName: "Update Blob Cache Control and Content Type"
     inputs:
-      azureSubscription: "$(AzureSubscriptionName)"
+      azureSubscription: "EY-CTSBP-SANDBOX-ADVISORY-SBXDB1-E-65508760"
       ScriptPath: scripts/UpdateBlobProperties.ps1
-      ScriptArguments: "-StorageAccountName $(StorageAccountName) -ContainerName $(ContainerName) -ResourceGroupName $(ResourceGroupName)"
+      ScriptArguments: "-StorageAccountName 'execcomp' -ContainerName 'execcomp' -ResourceGroupName 'Exec-Comp'"
       azurePowerShellVersion: LatestVersion
