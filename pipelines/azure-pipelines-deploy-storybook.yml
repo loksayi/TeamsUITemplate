@@ -42,16 +42,16 @@ steps:
     displayName: "Deploy Storybook to AzureBlob"
     inputs:
       SourcePath: "$(StorybookDist)"
-      azureSubscription: "Free Trial"
+      azureSubscription: "$(AzureSubscriptionName)"
       Destination: AzureBlob
-      storage: "teamsuitemplate"
-      ContainerName: "teamsuitemplate"
-      BlobPrefix: "Default Directory (saipujithreddyrkgmail.onmicrosoft.com)"
+      storage: "$(StorageAccountName)"
+      ContainerName: "$(ContainerName)"
+      BlobPrefix: "$(DirectoryName)"
 
   - task: AzurePowerShell@3
     displayName: "Update Blob Cache Control and Content Type"
     inputs:
-      azureSubscription: "Free Trial"
+      azureSubscription: "$(AzureSubscriptionName)"
       ScriptPath: scripts/UpdateBlobProperties.ps1
-      ScriptArguments: "-StorageAccountName 'teamsuitemplate' -ContainerName 'teamsuitemplate' -ResourceGroupName 'TeamsApps'"
+      ScriptArguments: "-StorageAccountName $(StorageAccountName) -ContainerName $(ContainerName) -ResourceGroupName $(ResourceGroupName)"
       azurePowerShellVersion: LatestVersion
